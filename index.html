@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>India Weather Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f9; }
+    #weather, #forecast, #favorites { margin-top: 20px; }
+    .card { display: inline-block; margin: 10px; padding: 15px; border-radius: 8px; background: white; box-shadow: 0px 2px 6px rgba(0,0,0,0.1); }
+    select, input, button { margin: 5px; padding: 8px; }
+    .fav-btn { margin-top: 10px; cursor: pointer; background: gold; border: none; padding: 6px 12px; border-radius: 5px; }
+    .fav-city { cursor: pointer; display: inline-block; margin: 5px; padding: 8px; border-radius: 6px; background: #007bff; color: white; }
+  </style>
+</head>
+<body>
+  <h1>🌦 India Weather Dashboard</h1>
+  
+  <!--Popular Indian cities according to me -->
+  <label for="citySelect">Choose a city:</label>
+  <select id="citySelect" onchange="getWeather(this.value)">
+    <option value="Hyderabad">Hyderabad</option>
+    <option value="Delhi">Delhi</option>
+    <option value="Mumbai">Mumbai</option>
+    <option value="Chennai">Chennai</option>
+    <option value="Bengaluru">Bengaluru</option>
+  </select>
+
+  <br>
+
+  <!-- Manual search of cities for knowing the condition -->
+  <input type="text" id="cityInput" placeholder="Or enter city name">
+  <button onclick="getWeather(document.getElementById('cityInput').value)">Search</button>
+  <button onclick="getLocationWeather()">📍 Current Location</button>
+
+  <div id="weather"></div>
+  <h2>5-Day Forecast</h2>
+  <div id="forecast"></div>
+
+  <h2>⭐ Favorite Cities</h2>
+  <div id="favorites"></div>
+
+  <script>
+    const apiKey = "2f055a6cc62bab3dc60501ca0a4d9848"; // your API key
+
+    let favorites = JSON.parse(localStorage.getItem("favorites")) || ["Hyderabad"];
+
+    async function getWeather(city = "Hyderabad") {
+      if (!city) city = "Hyderabad"; // it's the default city
+      try {
+        let url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+        let response = await fetch(url);
+        if (!response.ok) throw new Error("City not found");
+        let data = await response.json();
+
+        document.getElementById("weather").innerHTML = `
+          <div class="card">
+            <h2>${data.name}, ${data.sys.country}</h2>
+            <p>🌡 Temperature: ${data.main.temp}°C</p>
+            <p>💧 Humidity: ${data.main.humidity}%</p>
+            <p>💨 Wind Speed: ${data.wind.speed} m/s</p>
+            <p>☁ Condition: ${data.weather[0].description}</p>
+            <button class="fav-btn" onclick="addFavorite('${data.name}')">⭐ Add to Favorites</button>
+          </div>
+        `;
+
+        getForecast(city);
+      } catch (error) {
+        document.getElementById("weather").innerHTML = `<p style="color:red">${error.message}</p>`;
+        document.getElementById("forecast").innerHTML = "";
+      }
+    }
+
+    async function getForecast(city) {
+      let url = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`;
+      let response = await fetch(url);
+      if (!response.ok) return;
+      let data = await response.json();
+
+      let forecastHTML = "";
+      let shownDates = [];
+      data.list.forEach(item => {
+        let date = item.dt_txt.split(" ")[0];
+        if (!shownDates.includes(date) && shownDates.length < 5) {
+          shownDates.push(date);
+          forecastHTML += `
+            <div class="card">
+              <h3>${date}</h3>
+              <p>🌡 ${item.main.temp}°C</p>
+              <p>☁ ${item.weather[0].description}</p>
+            </div>
+          `;
+        }
+      });
+
+      document.getElementById("forecast").innerHTML = forecastHTML;
+    }
+
+    function getLocationWeather() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async position => {
+          let lat = position.coords.latitude;
+          let lon = position.coords.longitude;
+          let url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+          let response = await fetch(url);
+          let data = await response.json();
+          getWeather(data.name);
+        });
+      } else {
+        alert("Geolocation is not supported by your browser.");
+      }
+    }
+
+    // Add city to favorites
+    function addFavorite(city) {
+      if (!favorites.includes(city)) {
+        favorites.push(city);
+        localStorage.setItem("favorites", JSON.stringify(favorites));
+        displayFavorites();
+      }
+    }
+
+    // Show favorite cities
+    function displayFavorites() {
+      let favHTML = "";
+      favorites.forEach(city => {
+        favHTML += `<span class="fav-city" onclick="getWeather('${city}')">${city}</span>`;
+      });
+      document.getElementById("favorites").innerHTML = favHTML;
+    }
+
+    // Load default city weather (Delhi) and favorites
+    window.onload = () => {
+      getWeather("Hyderabad");
+      displayFavorites();
+    };
+  </script>
+</body>
+</html>
